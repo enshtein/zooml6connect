@@ -1,0 +1,10 @@
+{
+  "name": "zoom-l6-connect",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs",
+    "check": "node --check app.js && node --check sw.js && node --check server.mjs"
+  }
+}

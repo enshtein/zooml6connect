@@ -1,0 +1,10 @@
+{
+  "name": "ZOOM L6 Control",
+  "short_name": "L6 Control",
+  "description": "Touch-first USB MIDI control surface for ZOOM LiveTrak L6",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#161718",
+  "theme_color": "#292b2c"
+}

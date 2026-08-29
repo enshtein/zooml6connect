@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#292b2c" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>ZOOM L6 Control</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="mixer-shell">
+      <section class="workspace">
+        <aside class="layer-panel">
+          <div class="left-brand" aria-label="ZOOM LiveTrak L6">
+            <div class="brand-line"><span class="zoom">ZOOM</span><span class="model">L6</span></div>
+            <div class="connection-indicator disconnected" id="midiConnectionIndicator" role="status" aria-live="polite">
+              <span class="connection-led" aria-hidden="true"></span>
+              <small>OFFLINE</small>
+            </div>
+          </div>
+          <div class="layer-buttons" role="radiogroup" aria-label="Параметр верхних фейдеров">
+            <button class="layer-button active" data-layer="high">HIGH</button>
+            <button class="layer-button" data-layer="midfreq">FREQ</button>
+            <button class="layer-button" data-layer="mid">MID</button>
+            <button class="layer-button" data-layer="low">LOW</button>
+            <button class="layer-button" data-layer="aux1">AUX 1</button>
+            <button class="layer-button" data-layer="aux2">AUX 2</button>
+            <button class="layer-button" data-layer="efx">EFX</button>
+            <button class="layer-button" data-layer="pan">PAN</button>
+          </div>
+          <button class="icon-button left-settings" aria-label="Settings">⚙</button>
+        </aside>
+
+        <section class="channels" id="channels" aria-label="Каналы микшера"></section>
+
+        <aside class="master-panel">
+          <header class="channel-header master-header">
+            <div><span class="channel-number">MASTER</span><small class="channel-kind">STEREO</small></div>
+            <button class="comp-button">COMP</button>
+          </header>
+          <div class="signal-row master-signal-spacer" aria-hidden="true"></div>
+          <div class="master-upper">
+            <div class="master-scenes">
+              <div class="scene-title">SCENE</div>
+              <div class="scene-buttons"><button class="active">A</button><button>B</button><button>C</button></div>
+            </div>
+          </div>
+          <div class="level-divider"><span>LEVEL</span></div>
+          <div class="lower-zone master-lower">
+            <div class="fader-value master-value">96</div>
+            <div class="fader-and-meter level-fader-and-meter">
+              <div class="fader-wrap level-fader-wrap">
+                <input class="vertical-fader level-fader master-fader" type="range" min="0" max="127" value="96" aria-label="Master level" />
+                <span class="fader-cap level-cap" aria-hidden="true"></span>
+              </div>
+              <div class="master-channel-meters" aria-label="Master stereo level">
+                <div class="channel-meter" style="--meter: 82%"><i></i><b></b></div>
+                <div class="channel-meter" style="--meter: 68%"><i></i><b></b></div>
+              </div>
+            </div>
+            <div class="master-spacer">MASTER</div>
+          </div>
+        </aside>
+
+      </section>
+
+    </main>
+
+    <template id="channelTemplate">
+      <article class="channel-strip">
+        <header class="channel-header">
+          <div><span class="channel-number"></span><small class="channel-kind"></small></div>
+          <button class="route-button"></button>
+        </header>
+        <div class="signal-row"><span class="signal-led"></span><span>SIGNAL</span></div>
+        <div class="upper-zone">
+          <div class="parameter-name"></div>
+          <div class="fader-value parameter-value"></div>
+          <div class="fader-and-meter">
+            <div class="fader-wrap upper-fader-wrap">
+              <input class="vertical-fader parameter-fader" type="range" min="0" max="127" />
+              <span class="fader-cap parameter-cap" aria-hidden="true"></span>
+            </div>
+          </div>
+          <button class="lfo-button">LFO</button>
+        </div>
+        <div class="level-divider"><span>LEVEL</span></div>
+        <div class="lower-zone">
+          <div class="fader-value level-value"></div>
+          <div class="fader-and-meter level-fader-and-meter">
+            <div class="fader-wrap level-fader-wrap">
+              <input class="vertical-fader level-fader" type="range" min="0" max="127" />
+              <span class="fader-cap level-cap" aria-hidden="true"></span>
+            </div>
+            <div class="channel-meters">
+              <div class="channel-meter"><i></i><b></b></div>
+            </div>
+          </div>
+          <button class="mute-button">MUTE</button>
+        </div>
+      </article>
+    </template>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
