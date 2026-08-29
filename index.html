@@ -8,6 +8,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>ZOOM L6 Control</title>
     <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -16,10 +17,6 @@
         <aside class="layer-panel">
           <div class="left-brand" aria-label="ZOOM LiveTrak L6">
             <div class="brand-line"><span class="zoom">ZOOM</span><span class="model">L6</span></div>
-            <div class="connection-indicator disconnected" id="midiConnectionIndicator" role="status" aria-live="polite">
-              <span class="connection-led" aria-hidden="true"></span>
-              <small>OFFLINE</small>
-            </div>
           </div>
           <div class="layer-buttons" role="radiogroup" aria-label="Параметр верхних фейдеров">
             <button class="layer-button active" data-layer="high">HIGH</button>
@@ -31,7 +28,12 @@
             <button class="layer-button" data-layer="efx">EFX</button>
             <button class="layer-button" data-layer="pan">PAN</button>
           </div>
-          <button class="icon-button left-settings" aria-label="Settings">⚙</button>
+          <button class="icon-button left-audio disconnected" id="audioConnectionIndicator" type="button" aria-label="Connect audio" aria-live="polite">
+            <span class="connection-led" aria-hidden="true"></span><span>AUDIO</span>
+          </button>
+          <button class="icon-button left-midi disconnected" id="midiConnectionIndicator" type="button" aria-label="Connect MIDI" aria-live="polite">
+            <span class="connection-led" aria-hidden="true"></span><span>MIDI</span>
+          </button>
         </aside>
 
         <section class="channels" id="channels" aria-label="Каналы микшера"></section>
@@ -50,15 +52,10 @@
           </div>
           <div class="level-divider"><span>LEVEL</span></div>
           <div class="lower-zone master-lower">
-            <div class="fader-value master-value">96</div>
-            <div class="fader-and-meter level-fader-and-meter">
-              <div class="fader-wrap level-fader-wrap">
-                <input class="vertical-fader level-fader master-fader" type="range" min="0" max="127" value="96" aria-label="Master level" />
-                <span class="fader-cap level-cap" aria-hidden="true"></span>
-              </div>
+            <div class="master-meter-area">
               <div class="master-channel-meters" aria-label="Master stereo level">
-                <div class="channel-meter" style="--meter: 82%"><i></i><b></b></div>
-                <div class="channel-meter" style="--meter: 68%"><i></i><b></b></div>
+                <div class="channel-meter" style="--meter: 0%"><i></i><b></b></div>
+                <div class="channel-meter" style="--meter: 0%"><i></i><b></b></div>
               </div>
             </div>
             <div class="master-spacer">MASTER</div>
@@ -99,10 +96,73 @@
               <div class="channel-meter"><i></i><b></b></div>
             </div>
           </div>
-          <button class="mute-button">MUTE</button>
+          <div class="lower-actions">
+            <button class="mute-button" type="button" aria-label="Mute channel" title="Mute">
+              <svg viewBox="0 0 32 24" aria-hidden="true">
+                <path d="M3 9h5l6-5v16l-6-5H3z" />
+                <path d="m20 7 8 10m0-10-8 10" />
+              </svg>
+            </button>
+            <button class="level-lfo-button" type="button">LFO</button>
+          </div>
         </div>
       </article>
     </template>
+
+    <dialog class="midi-dialog" id="midiSettingsDialog">
+      <div class="midi-dialog-header"><strong>MIDI CONNECTION</strong><button id="midiDialogClose" type="button">×</button></div>
+      <label>INPUT<select id="midiInputSelect"></select></label>
+      <label>OUTPUT<select id="midiOutputSelect"></select></label>
+      <div class="midi-dialog-actions">
+        <button id="midiAutoConnect" type="button">AUTO CONNECT L6</button>
+        <button id="midiApplyPorts" type="button">APPLY PORTS</button>
+        <button id="midiDisconnect" type="button">DISCONNECT</button>
+      </div>
+      <pre id="midiLog" aria-label="MIDI diagnostic log"></pre>
+    </dialog>
+
+    <dialog class="midi-dialog audio-dialog" id="audioSettingsDialog">
+      <div class="midi-dialog-header"><strong>USB AUDIO INPUT</strong><button id="audioDialogClose" type="button">×</button></div>
+      <label>DEVICE<select id="audioDeviceSelect"></select></label>
+      <div class="audio-device-info" id="audioDeviceInfo">Audio is disconnected</div>
+      <div class="midi-dialog-actions">
+        <button id="audioAutoConnect" type="button">AUTO ZOOM</button>
+        <button id="audioApplyDevice" type="button">CONNECT DEVICE</button>
+        <button id="audioDisconnect" type="button">DISCONNECT</button>
+      </div>
+      <p class="audio-channel-note">Expected L6 layout: CH1, CH2, CH3 L/R, CH4 L/R, CH5 L/R, CH6 L/R, MASTER L/R. The meters use only the channels actually exposed by the browser.</p>
+    </dialog>
+
+    <dialog class="midi-dialog lfo-dialog" id="lfoSettingsDialog">
+      <div class="midi-dialog-header"><strong id="lfoDialogTitle">LFO</strong><button id="lfoDialogClose" type="button">×</button></div>
+      <div class="lfo-main-layout">
+        <div class="lfo-fader-controls">
+        <label class="lfo-fader-control">
+          <span>RATE</span><b id="lfoRateValue">1.00 Hz</b>
+          <span class="fader-wrap lfo-editor-fader-wrap">
+            <input class="vertical-fader" id="lfoRate" type="range" min="0" max="127" value="40" />
+            <span class="fader-cap" aria-hidden="true"></span>
+          </span>
+        </label>
+        <label class="lfo-fader-control">
+          <span>DEPTH</span><b id="lfoDepthValue">30%</b>
+          <span class="fader-wrap lfo-editor-fader-wrap">
+            <input class="vertical-fader" id="lfoDepth" type="range" min="0" max="127" value="38" />
+            <span class="fader-cap" aria-hidden="true"></span>
+          </span>
+        </label>
+        </div>
+        <div class="lfo-side-options">
+          <fieldset class="lfo-options"><legend>SHAPE</legend><div id="lfoWaveformOptions">
+            <button type="button" data-value="sine">SINE</button><button type="button" data-value="triangle">TRIANGLE</button><button type="button" data-value="square">SQUARE</button><button type="button" data-value="saw">SAW</button>
+          </div></fieldset>
+          <fieldset class="lfo-options"><legend>DIRECTION</legend><div id="lfoModeOptions">
+            <button type="button" data-value="bipolar">BIPOLAR</button><button type="button" data-value="positive">POSITIVE</button><button type="button" data-value="negative">NEGATIVE</button>
+          </div></fieldset>
+        </div>
+      </div>
+      <div class="lfo-dialog-actions"><button id="lfoEnable" type="button">ENABLE</button><button id="lfoRandom" type="button">RANDOM</button><button id="lfoPause" type="button">PAUSE</button></div>
+    </dialog>
 
     <script type="module" src="app.js"></script>
   </body>
