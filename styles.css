@@ -42,6 +42,12 @@ button { -webkit-tap-highlight-color: transparent; }
   box-shadow: 0 24px 70px #000a, inset 0 1px #747779, inset 0 -1px #151617;
 }
 
+@media (display-mode: standalone) and (pointer: coarse) {
+  .mixer-shell {
+    padding-top: max(env(safe-area-inset-top), 24px);
+  }
+}
+
 .left-brand { display: flex; align-items: baseline; justify-content: center; gap: 5px; padding: 13px 4px 8px; white-space: nowrap; }
 .left-brand .zoom { font-size: 17px; font-weight: 900; letter-spacing: -1px; }
 .left-brand .model { font-size: 17px; font-weight: 800; }
