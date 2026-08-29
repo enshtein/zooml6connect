@@ -32,6 +32,7 @@ const channelsRoot = document.querySelector("#channels");
 const template = document.querySelector("#channelTemplate");
 const connectionIndicator = document.querySelector("#midiConnectionIndicator");
 const settingsDialog = document.querySelector("#midiSettingsDialog");
+const iosMidiCompatibilityDialog = document.querySelector("#iosMidiCompatibilityDialog");
 const inputSelect = document.querySelector("#midiInputSelect");
 const outputSelect = document.querySelector("#midiOutputSelect");
 const logElement = document.querySelector("#midiLog");
@@ -148,8 +149,20 @@ compressorButton.addEventListener("click", () => {
 setCompressor(compressorActive);
 selectScene(selectedScene);
 
-connectionIndicator.addEventListener("click", () => openMidiDialog());
+connectionIndicator.addEventListener("click", () => {
+  if (isIOSDevice() && !midi.supported) openIOSMidiCompatibilityDialog();
+  else openMidiDialog();
+});
 audioIndicator.addEventListener("click", () => openAudioDialog());
+
+function isIOSDevice() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
+function openIOSMidiCompatibilityDialog() {
+  if (!iosMidiCompatibilityDialog.open) iosMidiCompatibilityDialog.showModal();
+}
 
 async function openMidiDialog() {
   settingsDialog.showModal();
@@ -167,6 +180,8 @@ document.querySelector("#midiAutoConnect").addEventListener("click", () => conne
 document.querySelector("#midiApplyPorts").addEventListener("click", () => midi.selectPorts(inputSelect.value, outputSelect.value));
 document.querySelector("#midiDisconnect").addEventListener("click", () => midi.disconnect());
 document.querySelector("#midiDialogClose").addEventListener("click", () => settingsDialog.close());
+document.querySelector("#iosMidiDialogClose").addEventListener("click", () => iosMidiCompatibilityDialog.close());
+document.querySelector("#iosMidiContinue").addEventListener("click", () => iosMidiCompatibilityDialog.close());
 document.querySelector("#audioDialogClose").addEventListener("click", () => audioDialog.close());
 document.querySelector("#audioAutoConnect").addEventListener("click", () => connectAudio(true));
 document.querySelector("#audioApplyDevice").addEventListener("click", () => connectAudio(false));
@@ -635,7 +650,12 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
   navigator.serviceWorker.register("./sw.js").catch(() => {});
 }
 
-connectMidi();
+if (isIOSDevice() && !midi.supported) {
+  setConnectionError(new Error("Web MIDI is unavailable in this iOS browser"));
+  openIOSMidiCompatibilityDialog();
+} else {
+  connectMidi();
+}
 
 if (navigator.permissions?.query) {
   navigator.permissions.query({ name: "microphone" }).then(permission => {

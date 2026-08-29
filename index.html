@@ -121,6 +121,13 @@
       <pre id="midiLog" aria-label="MIDI diagnostic log"></pre>
     </dialog>
 
+    <dialog class="midi-dialog ios-midi-dialog" id="iosMidiCompatibilityDialog">
+      <div class="midi-dialog-header"><strong>WEB MIDI ON IPAD</strong><button id="iosMidiDialogClose" type="button" aria-label="Close">×</button></div>
+      <p>Safari and an app installed from Safari do not provide Web MIDI access. To control the ZOOM L6 over USB on this iPad, open this page in MIDIWeb Browser.</p>
+      <a class="ios-midi-app-link" href="https://apps.apple.com/us/app/midiweb-browser/id6757226617" target="_blank" rel="noopener noreferrer">GET MIDIWEB BROWSER</a>
+      <button class="ios-midi-continue" id="iosMidiContinue" type="button">CONTINUE WITHOUT MIDI</button>
+    </dialog>
+
     <dialog class="midi-dialog audio-dialog" id="audioSettingsDialog">
       <div class="midi-dialog-header"><strong>USB AUDIO INPUT</strong><button id="audioDialogClose" type="button">×</button></div>
       <label>DEVICE<select id="audioDeviceSelect"></select></label>

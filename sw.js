@@ -1,4 +1,4 @@
-const CACHE = "zoom-l6-ui-v34";
+const CACHE = "zoom-l6-ui-v35";
 const SHELL = ["./", "./index.html", "./styles.css", "./app.js", "./src/midi-mappings.js", "./src/midi-service.js", "./src/lfo-engine.js", "./src/audio-service.js", "./manifest.webmanifest", "./assets/icon-192.png", "./assets/icon-512.png", "./assets/apple-touch-icon.png"];
 
 self.addEventListener("install", event => {

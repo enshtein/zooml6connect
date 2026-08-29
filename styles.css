@@ -530,6 +530,12 @@ body { padding: 0; }
 #midiAutoConnect { background: #263b9e; border-color: #7890ef; }
 #midiDisconnect { background: #5a211d; border-color: #aa534c; }
 #midiLog { height: 180px; margin: 0; padding: 10px; overflow: auto; color: #9befaa; background: #101112; border: 1px solid #46494a; font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
+.ios-midi-dialog { width: min(520px, calc(100vw - 32px)); }
+.ios-midi-dialog p { margin: 0 0 18px; color: #d7d9d7; font-size: 15px; line-height: 1.5; }
+.ios-midi-app-link,
+.ios-midi-continue { display: flex; min-height: 54px; align-items: center; justify-content: center; box-sizing: border-box; border-radius: 2px; font-size: 13px; font-weight: 900; letter-spacing: .04em; text-decoration: none; }
+.ios-midi-app-link { color: #fff; background: #263b9e; border: 1px solid #7890ef; }
+.ios-midi-continue { width: 100%; margin-top: 10px; color: #d9dcda; background: #343738; border: 1px solid #777b7c; }
 .audio-device-info { min-height: 42px; margin: 12px 0; padding: 12px; color: #b7d4ff; background: #151718; border: 1px solid #46494a; font-size: 12px; }
 .audio-device-info.warning { color: #ffe29a; border-color: #a77e2e; background: #2c2618; line-height: 1.45; }
 .audio-channel-note { margin: 12px 0 0; color: #aeb2b1; font-size: 11px; line-height: 1.5; }
