@@ -6,16 +6,32 @@ export class AudioService extends EventTarget {
   analysers = [];
   animationFrame = 0;
   deviceId = "";
+  nativeConnected = false;
+  nativeRequestId = 0;
+  nativeRequests = new Map();
+
+  constructor() {
+    super();
+    if (this.native) {
+      window.addEventListener("zoom-audio-native", event => this.#handleNativeEvent(event.detail));
+    }
+  }
+
+  get native() {
+    return Boolean(window.webkit?.messageHandlers?.zoomAudio);
+  }
 
   get supported() {
-    return Boolean(navigator.mediaDevices?.getUserMedia && (globalThis.AudioContext || globalThis.webkitAudioContext));
+    return this.native || Boolean(navigator.mediaDevices?.getUserMedia && (globalThis.AudioContext || globalThis.webkitAudioContext));
   }
 
   get connected() {
+    if (this.native) return this.nativeConnected;
     return Boolean(this.stream?.active && this.context && this.context.state !== "closed");
   }
 
   async getDevices() {
+    if (this.native) return (await this.#nativeRequest("getDevices")).devices || [];
     if (!navigator.mediaDevices?.enumerateDevices) return [];
     return (await navigator.mediaDevices.enumerateDevices()).filter(device => device.kind === "audioinput");
   }
@@ -33,6 +49,7 @@ export class AudioService extends EventTarget {
 
   async connect(deviceId = "") {
     if (!this.supported) throw new Error("Web Audio input is not available in this browser");
+    if (this.native) return this.#nativeRequest("connect", { deviceId });
     await this.disconnect();
 
     const audio = {
@@ -72,6 +89,10 @@ export class AudioService extends EventTarget {
   }
 
   async disconnect() {
+    if (this.native) {
+      await this.#nativeRequest("disconnect");
+      return;
+    }
     cancelAnimationFrame(this.animationFrame);
     this.animationFrame = 0;
     this.stream?.getTracks().forEach(track => track.stop());
@@ -106,9 +127,43 @@ export class AudioService extends EventTarget {
     this.animationFrame = requestAnimationFrame(this.#meterLoop);
   };
 
-  #emitConnection(connected, label, channelCount, sampleRate) {
+  #emitConnection(connected, label, channelCount, sampleRate, diagnostics = {}) {
     this.dispatchEvent(new CustomEvent("connectionchange", {
-      detail: { connected, label, channelCount, sampleRate, deviceId: this.deviceId }
+      detail: { connected, label, channelCount, sampleRate, deviceId: this.deviceId, ...diagnostics }
     }));
+  }
+
+  #nativeRequest(command, payload = {}) {
+    const requestId = String(++this.nativeRequestId);
+    return new Promise((resolve, reject) => {
+      this.nativeRequests.set(requestId, { resolve, reject });
+      window.webkit.messageHandlers.zoomAudio.postMessage({ command, requestId, ...payload });
+    });
+  }
+
+  #handleNativeEvent(detail) {
+    if (!detail || typeof detail !== "object") return;
+    if (detail.type === "response") {
+      const request = this.nativeRequests.get(detail.requestId);
+      if (!request) return;
+      this.nativeRequests.delete(detail.requestId);
+      if (detail.error) request.reject(new Error(detail.error));
+      else request.resolve(detail.result || {});
+    } else if (detail.type === "connection") {
+      this.nativeConnected = Boolean(detail.connected);
+      this.deviceId = detail.deviceId || "";
+      this.#emitConnection(
+        this.nativeConnected,
+        detail.label || "",
+        detail.channelCount || 0,
+        detail.sampleRate || 0,
+        {
+          maximumChannelCount: detail.maximumChannelCount || 0,
+          sessionChannelCount: detail.sessionChannelCount || 0
+        }
+      );
+    } else if (detail.type === "levels") {
+      this.dispatchEvent(new CustomEvent("levels", { detail: detail.levels || [] }));
+    }
   }
 }

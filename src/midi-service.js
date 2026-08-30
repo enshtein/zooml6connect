@@ -5,9 +5,22 @@ export class MidiService extends EventTarget {
   input = null;
   output = null;
   channel = 1;
+  nativeInitialized = false;
+  manuallyDisconnected = false;
+
+  constructor() {
+    super();
+    if (this.native) {
+      window.addEventListener("zoom-midi-native", event => this.#handleNativeEvent(event.detail));
+    }
+  }
+
+  get native() {
+    return Boolean(window.webkit?.messageHandlers?.zoomMidi);
+  }
 
   get supported() {
-    return typeof navigator.requestMIDIAccess === "function";
+    return this.native || typeof navigator.requestMIDIAccess === "function";
   }
 
   get connected() {
@@ -16,6 +29,14 @@ export class MidiService extends EventTarget {
 
   async initialize() {
     if (!this.supported) throw new Error("Web MIDI API is not available in this browser");
+    if (this.native) {
+      if (!this.nativeInitialized) {
+        const portsReady = new Promise(resolve => this.addEventListener("ports", resolve, { once: true }));
+        this.#postNative({ command: "initialize" });
+        await portsReady;
+      }
+      return true;
+    }
     if (!this.access) {
       this.access = await navigator.requestMIDIAccess({ sysex: false });
       this.access.onstatechange = event => this.#handleStateChange(event);
@@ -25,18 +46,22 @@ export class MidiService extends EventTarget {
   }
 
   get initialized() {
+    if (this.native) return this.nativeInitialized;
     return this.access !== null;
   }
 
   getInputs() {
+    if (this.native) return this.access?.inputs || [];
     return this.access ? [...this.access.inputs.values()] : [];
   }
 
   getOutputs() {
+    if (this.native) return this.access?.outputs || [];
     return this.access ? [...this.access.outputs.values()] : [];
   }
 
   async autoConnect() {
+    this.manuallyDisconnected = false;
     await this.initialize();
     const input = this.#bestPort(this.getInputs());
     const output = this.#bestPort(this.getOutputs());
@@ -46,6 +71,14 @@ export class MidiService extends EventTarget {
   }
 
   selectPorts(inputId, outputId) {
+    this.manuallyDisconnected = false;
+    if (this.native) {
+      this.input = this.getInputs().find(port => port.id === inputId) || null;
+      this.output = this.getOutputs().find(port => port.id === outputId) || null;
+      this.#postNative({ command: "selectPorts", inputId: inputId || null, outputId: outputId || null });
+      this.#emitConnection();
+      return;
+    }
     this.#detachInput();
     this.input = this.getInputs().find(port => port.id === inputId) || null;
     this.output = this.getOutputs().find(port => port.id === outputId) || null;
@@ -56,7 +89,8 @@ export class MidiService extends EventTarget {
   sendControlChange(cc, value, channel = this.channel) {
     if (!this.output) return false;
     const data = [0xb0 | ((channel - 1) & 0x0f), clampMidi(cc), clampMidi(value)];
-    this.output.send(data);
+    if (this.native) this.#postNative({ command: "send", data });
+    else this.output.send(data);
     this.#log("out", data);
     return true;
   }
@@ -64,12 +98,15 @@ export class MidiService extends EventTarget {
   sendProgramChange(program, channel = this.channel) {
     if (!this.output) return false;
     const data = [0xc0 | ((channel - 1) & 0x0f), clampMidi(program)];
-    this.output.send(data);
+    if (this.native) this.#postNative({ command: "send", data });
+    else this.output.send(data);
     this.#log("out", data);
     return true;
   }
 
   disconnect() {
+    this.manuallyDisconnected = true;
+    if (this.native) this.#postNative({ command: "disconnect" });
     this.#detachInput();
     this.input = null;
     this.output = null;
@@ -106,6 +143,33 @@ export class MidiService extends EventTarget {
     } else if (type === 0xc0 && data.length >= 2) {
       this.dispatchEvent(new CustomEvent("programchange", { detail: { channel, program: data[1] } }));
     }
+  }
+
+  #handleNativeEvent(detail) {
+    if (!detail || typeof detail !== "object") return;
+    if (detail.type === "ports") {
+      this.nativeInitialized = true;
+      this.access = { inputs: detail.inputs || [], outputs: detail.outputs || [] };
+      const selectedInputId = detail.selectedInputId || this.input?.id;
+      const selectedOutputId = detail.selectedOutputId || this.output?.id;
+      this.input = this.getInputs().find(port => port.id === selectedInputId) || null;
+      this.output = this.getOutputs().find(port => port.id === selectedOutputId) || null;
+      if (!this.manuallyDisconnected && (!this.input || !this.output)) {
+        const input = this.#bestPort(this.getInputs());
+        const output = this.#bestPort(this.getOutputs());
+        if (input && output) this.selectPorts(input.id, output.id);
+      }
+      this.dispatchEvent(new Event("ports"));
+      this.#emitConnection();
+    } else if (detail.type === "message" && Array.isArray(detail.data)) {
+      this.#handleMessage({ data: detail.data });
+    } else if (detail.type === "log") {
+      this.#log("state", [], detail.message || "CoreMIDI state changed");
+    }
+  }
+
+  #postNative(message) {
+    window.webkit.messageHandlers.zoomMidi.postMessage(message);
   }
 
   #handleStateChange(event) {

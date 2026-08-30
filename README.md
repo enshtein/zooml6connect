@@ -14,6 +14,10 @@ Open <http://127.0.0.1:4173/>.
 
 The current `master` branch is deployed through GitHub Pages at <https://enshtein.github.io/zooml6connect/>. On supported desktop browsers use **Install app**; on iPad use Safari's **Add to Home Screen** and enable **Open as Web App**.
 
+## Native iPad test app
+
+The optional Xcode wrapper in [`ios/`](ios/) embeds the same web interface and provides native USB MIDI through CoreMIDI. It can be installed on a personal iPad from Xcode with a free Apple Account. Adding it does not change the GitHub Pages deployment or remove the PWA version.
+
 ## MIDI integration
 
 The current version includes bidirectional Web MIDI control for the documented L6 Mixer Control mapping:

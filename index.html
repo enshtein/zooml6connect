@@ -34,6 +34,10 @@
           <button class="icon-button left-midi disconnected" id="midiConnectionIndicator" type="button" aria-label="Connect MIDI" aria-live="polite">
             <span class="connection-led" aria-hidden="true"></span><span>MIDI</span>
           </button>
+          <button class="icon-button left-awake" id="keepAwakeToggle" type="button" aria-label="Keep screen awake" aria-pressed="false" title="Keep iPad screen awake">
+            <svg viewBox="0 0 32 24" aria-hidden="true"><path d="M2.5 12s5-8 13.5-8 13.5 8 13.5 8-5 8-13.5 8S2.5 12 2.5 12Z"/><circle cx="16" cy="12" r="4"/></svg>
+            <span>AWAKE</span>
+          </button>
         </aside>
 
         <section class="channels" id="channels" aria-label="Каналы микшера"></section>
@@ -137,7 +141,7 @@
         <button id="audioApplyDevice" type="button">CONNECT DEVICE</button>
         <button id="audioDisconnect" type="button">DISCONNECT</button>
       </div>
-      <p class="audio-channel-note">Expected L6 layout: CH1, CH2, CH3 L/R, CH4 L/R, CH5 L/R, CH6 L/R, MASTER L/R. The meters use only the channels actually exposed by the browser.</p>
+      <p class="audio-channel-note">Verified L6 USB layout: MASTER L/R, CH1, CH2, CH3 L/R, CH4 L/R, CH5 L/R, CH6 L/R. The meters use only the channels actually exposed by the browser or native audio engine.</p>
     </dialog>
 
     <dialog class="midi-dialog lfo-dialog" id="lfoSettingsDialog">
@@ -160,11 +164,16 @@
         </label>
         </div>
         <div class="lfo-side-options">
-          <fieldset class="lfo-options"><legend>SHAPE</legend><div id="lfoWaveformOptions">
-            <button type="button" data-value="sine">SINE</button><button type="button" data-value="triangle">TRIANGLE</button><button type="button" data-value="square">SQUARE</button><button type="button" data-value="saw">SAW</button>
+          <fieldset class="lfo-options"><legend>SHAPE</legend><div id="lfoWaveformOptions" role="radiogroup" aria-label="LFO waveform">
+            <button type="button" role="radio" aria-label="Sine" title="Sine" data-value="sine"><span class="option-radio"></span><svg class="wave-icon" viewBox="0 0 64 28" aria-hidden="true"><path d="M2 14C10-2 18-2 26 14s16 16 24 0S58-2 62 6"/></svg></button>
+            <button type="button" role="radio" aria-label="Triangle" title="Triangle" data-value="triangle"><span class="option-radio"></span><svg class="wave-icon" viewBox="0 0 64 28" aria-hidden="true"><path d="M2 24 17 4l15 20L47 4l15 20"/></svg></button>
+            <button type="button" role="radio" aria-label="Square" title="Square" data-value="square"><span class="option-radio"></span><svg class="wave-icon" viewBox="0 0 64 28" aria-hidden="true"><path d="M2 24V4h15v20h15V4h15v20h15"/></svg></button>
+            <button type="button" role="radio" aria-label="Sawtooth" title="Sawtooth" data-value="saw"><span class="option-radio"></span><svg class="wave-icon" viewBox="0 0 64 28" aria-hidden="true"><path d="M2 24 22 4v20L42 4v20L62 4"/></svg></button>
           </div></fieldset>
-          <fieldset class="lfo-options"><legend>DIRECTION</legend><div id="lfoModeOptions">
-            <button type="button" data-value="bipolar">BIPOLAR</button><button type="button" data-value="positive">POSITIVE</button><button type="button" data-value="negative">NEGATIVE</button>
+          <fieldset class="lfo-options"><legend>DIRECTION</legend><div id="lfoModeOptions" role="radiogroup" aria-label="LFO direction">
+            <button type="button" role="radio" aria-label="Bipolar" title="Bipolar: above and below the base value" data-value="bipolar"><span class="option-radio"></span><svg class="direction-icon" viewBox="0 0 64 28" aria-hidden="true"><path class="center-line" d="M3 14h58"/><path d="M32 24V4m-6 6 6-6 6 6m-12 8 6 6 6-6"/></svg></button>
+            <button type="button" role="radio" aria-label="Positive" title="Positive: above the base value" data-value="positive"><span class="option-radio"></span><svg class="direction-icon" viewBox="0 0 64 28" aria-hidden="true"><path class="center-line" d="M3 23h58"/><path d="M32 23V4m-6 6 6-6 6 6"/></svg></button>
+            <button type="button" role="radio" aria-label="Negative" title="Negative: below the base value" data-value="negative"><span class="option-radio"></span><svg class="direction-icon" viewBox="0 0 64 28" aria-hidden="true"><path class="center-line" d="M3 5h58"/><path d="M32 5v19m-6-6 6 6 6-6"/></svg></button>
           </div></fieldset>
         </div>
       </div>

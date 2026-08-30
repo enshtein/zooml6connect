@@ -40,6 +40,7 @@ const audioIndicator = document.querySelector("#audioConnectionIndicator");
 const audioDialog = document.querySelector("#audioSettingsDialog");
 const audioDeviceSelect = document.querySelector("#audioDeviceSelect");
 const audioDeviceInfo = document.querySelector("#audioDeviceInfo");
+const keepAwakeToggle = document.querySelector("#keepAwakeToggle");
 const lfoDialog = document.querySelector("#lfoSettingsDialog");
 const lfoRateInput = document.querySelector("#lfoRate");
 const lfoDepthInput = document.querySelector("#lfoDepth");
@@ -154,6 +155,44 @@ connectionIndicator.addEventListener("click", () => {
   else openMidiDialog();
 });
 audioIndicator.addEventListener("click", () => openAudioDialog());
+let keepAwakeRequested = false;
+let wakeLockSentinel = null;
+
+keepAwakeToggle.addEventListener("click", async () => {
+  keepAwakeRequested = !keepAwakeRequested;
+  await applyKeepAwake();
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && keepAwakeRequested) applyKeepAwake();
+});
+
+async function applyKeepAwake() {
+  try {
+    if (window.webkit?.messageHandlers?.zoomSystem) {
+      window.webkit.messageHandlers.zoomSystem.postMessage({ keepAwake: keepAwakeRequested });
+    } else if (keepAwakeRequested && navigator.wakeLock?.request) {
+      wakeLockSentinel = await navigator.wakeLock.request("screen");
+      wakeLockSentinel.addEventListener("release", () => {
+        wakeLockSentinel = null;
+        if (document.visibilityState === "visible" && keepAwakeRequested) applyKeepAwake();
+      }, { once: true });
+    } else if (!keepAwakeRequested && wakeLockSentinel) {
+      await wakeLockSentinel.release();
+      wakeLockSentinel = null;
+    } else if (keepAwakeRequested) {
+      throw new Error("Screen wake lock is not supported in this browser");
+    }
+    keepAwakeToggle.classList.toggle("active", keepAwakeRequested);
+    keepAwakeToggle.setAttribute("aria-pressed", String(keepAwakeRequested));
+    keepAwakeToggle.title = keepAwakeRequested ? "Screen will stay awake" : "Keep iPad screen awake";
+  } catch (error) {
+    keepAwakeRequested = false;
+    keepAwakeToggle.classList.remove("active");
+    keepAwakeToggle.setAttribute("aria-pressed", "false");
+    keepAwakeToggle.title = error.message;
+  }
+}
 
 function isIOSDevice() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent)
@@ -427,7 +466,14 @@ async function refreshAudioDevices(selectedId = audio.deviceId) {
   );
 }
 
-function updateAudioConnection({ connected, label = "", channelCount = 0, sampleRate = 0 }) {
+function updateAudioConnection({
+  connected,
+  label = "",
+  channelCount = 0,
+  sampleRate = 0,
+  maximumChannelCount = 0,
+  sessionChannelCount = 0
+}) {
   audioInputChannelCount = connected ? channelCount : 0;
   audioIndicator.classList.toggle("connected", connected);
   audioIndicator.classList.toggle("disconnected", !connected);
@@ -435,10 +481,13 @@ function updateAudioConnection({ connected, label = "", channelCount = 0, sample
   audioIndicator.setAttribute("aria-label", connected ? "Audio connected" : "Connect audio");
   audioIndicator.title = connected ? `${label}: ${channelCount} channels, ${sampleRate} Hz` : "Choose USB audio input";
   audioDeviceInfo.classList.toggle("warning", connected && channelCount < 12);
+  const nativeDiagnostics = maximumChannelCount
+    ? ` · iOS max ${maximumChannelCount}, session ${sessionChannelCount}, engine ${channelCount}`
+    : "";
   audioDeviceInfo.textContent = connected
     ? channelCount < 12
-      ? `${label || "Audio input"} · ${channelCount} channels · ${sampleRate} Hz. L6 is in Stereo Mix/Automatic web mode. Restart the L6 while holding USB 1/2 + SOUND PAD 2 to select fixed Multi Track (12-in/4-out), then reconnect AUDIO.`
-      : `${label || "Audio input"} · ${channelCount} channels · ${sampleRate} Hz`
+      ? `${label || "Audio input"} · ${channelCount} channels · ${sampleRate} Hz${nativeDiagnostics}. L6 is in Stereo Mix/Automatic web mode. Restart the L6 while holding USB 1/2 + SOUND PAD 2 to select fixed Multi Track (12-in/4-out), then reconnect AUDIO.`
+      : `${label || "Audio input"} · ${channelCount} channels · ${sampleRate} Hz${nativeDiagnostics}`
     : "Audio is disconnected";
 }
 
@@ -461,23 +510,24 @@ function updateAudioMeters(levels) {
   if (audioInputChannelCount === 2) {
     channels.forEach(channel => {
       const strip = getStrip(channel.number);
-      strip.querySelectorAll(".channel-meter").forEach(meter => setMeterLevel(meter, 0));
+      strip.querySelectorAll(".lower-zone .channel-meter").forEach(meter => setMeterLevel(meter, 0));
       strip.querySelector(".signal-led").classList.remove("active");
     });
     document.querySelectorAll(".master-channel-meters .channel-meter").forEach((meter, index) => setMeterLevel(meter, levels[index] || 0));
     return;
   }
 
-  const layout = [[0], [1], [2, 3], [4, 5], [6, 7], [8, 9]];
+  // Physical L6 USB capture order: MASTER L/R first, then CH1, CH2, CH3–CH6 stereo pairs.
+  const layout = [[2], [3], [4, 5], [6, 7], [8, 9], [10, 11]];
   layout.forEach((sourceChannels, stripIndex) => {
     const strip = getStrip(stripIndex + 1);
-    const meters = strip.querySelectorAll(".channel-meter");
+    const meters = strip.querySelectorAll(".lower-zone .channel-meter");
     meters.forEach((meter, meterIndex) => setMeterLevel(meter, levels[sourceChannels[meterIndex]] || 0));
     const peak = Math.max(...sourceChannels.map(channel => levels[channel] || 0));
     strip.querySelector(".signal-led").classList.toggle("active", peak > 0.08);
   });
   document.querySelectorAll(".master-channel-meters .channel-meter").forEach((meter, index) => {
-    setMeterLevel(meter, audioInputChannelCount >= 12 ? levels[10 + index] || 0 : 0);
+    setMeterLevel(meter, audioInputChannelCount >= 12 ? levels[index] || 0 : 0);
   });
 }
 
@@ -519,8 +569,16 @@ function renderLfoDialog() {
   lfoDepthInput.closest(".fader-wrap").style.setProperty("--fader-value", config.depthRaw / 127);
   document.querySelector("#lfoRateValue").textContent = `${config.rate.toFixed(config.rate < 0.1 ? 2 : 1)} Hz`;
   document.querySelector("#lfoDepthValue").textContent = `${Math.round(config.depth * 100)}%`;
-  document.querySelectorAll("#lfoWaveformOptions button").forEach(button => button.classList.toggle("active", button.dataset.value === config.waveform));
-  document.querySelectorAll("#lfoModeOptions button").forEach(button => button.classList.toggle("active", button.dataset.value === config.mode));
+  document.querySelectorAll("#lfoWaveformOptions button").forEach(button => {
+    const selected = button.dataset.value === config.waveform;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-checked", String(selected));
+  });
+  document.querySelectorAll("#lfoModeOptions button").forEach(button => {
+    const selected = button.dataset.value === config.mode;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-checked", String(selected));
+  });
   const enabled = lfo.isActive(editedLfo.key);
   const enableButton = document.querySelector("#lfoEnable");
   const pauseButton = document.querySelector("#lfoPause");

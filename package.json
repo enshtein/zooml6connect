@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node server.mjs",
-    "check": "node --check app.js && node --check sw.js && node --check server.mjs && node --check src/midi-mappings.js && node --check src/midi-service.js && node --check src/lfo-engine.js && node --check src/audio-service.js"
+    "check": "node --check app.js && node --check sw.js && node --check server.mjs && node --check src/midi-mappings.js && node --check src/midi-service.js && node --check src/lfo-engine.js && node --check src/audio-service.js",
+    "ios:open": "open ios/ZoomL6Connect.xcodeproj"
   }
 }

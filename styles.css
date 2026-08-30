@@ -281,9 +281,12 @@ body { padding: 0; }
 .left-brand .zoom { font-size: 15px; line-height: 16px; }
 .left-brand .model { color: #d6d8d6; font-size: 16px; line-height: 16px; }
 .left-midi,
-.left-audio { display: flex; align-items: center; justify-content: center; gap: 8px; width: auto; height: 48px; margin: 7px 9px 0; color: #d4d6d5; background: #3b3e3f; border-color: #777b7c; border-radius: 2px; font-size: 12px; font-weight: 900; letter-spacing: .08em; box-shadow: none; cursor: pointer; }
+.left-audio,
+.left-awake { display: flex; align-items: center; justify-content: center; gap: 8px; width: auto; height: 48px; margin: 7px 9px 0; color: #d4d6d5; background: #3b3e3f; border-color: #777b7c; border-radius: 2px; font-size: 12px; font-weight: 900; letter-spacing: .08em; box-shadow: none; cursor: pointer; }
 .left-audio { margin-top: auto; }
-.left-midi { margin-bottom: 10px; }
+.left-awake svg { width: 24px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; }
+.left-awake.active { color: #dfffe4; border-color: #4fa960; background: #1f3c27; box-shadow: 0 0 10px #43ee6744; }
+.left-awake { margin-bottom: 10px; }
 .connection-led { width: 7px; height: 7px; border-radius: 50%; background: #5d6162; box-shadow: inset 0 0 2px #111; }
 .left-midi.connected, .left-audio.connected { color: #dfffe4; border-color: #4fa960; }
 .left-midi.connected .connection-led, .left-audio.connected .connection-led { background: #43ee67; box-shadow: 0 0 8px #43ee67, inset 0 0 2px #effff1; }
@@ -542,8 +545,8 @@ body { padding: 0; }
 #audioAutoConnect { background: #263b9e; border-color: #7890ef; }
 #audioDisconnect { background: #5a211d; border-color: #aa534c; }
 
-.lfo-dialog { width: min(690px, calc(100vw - 32px)); }
-.lfo-main-layout { height: 330px; display: grid; grid-template-columns: minmax(280px, 1fr) 330px; gap: 14px; }
+.lfo-dialog { width: min(650px, calc(100vw - 32px)); }
+.lfo-main-layout { height: 330px; display: grid; grid-template-columns: minmax(280px, 1fr) 290px; gap: 14px; }
 .lfo-fader-controls { height: 100%; display: flex; justify-content: center; gap: 55px; margin: 0; }
 .lfo-dialog label.lfo-fader-control { width: 110px; height: 100%; margin: 0; display: flex; flex-direction: column; align-items: center; gap: 5px; color: #c8cbca; font-size: 11px; font-weight: 900; letter-spacing: .08em; }
 .lfo-fader-control > b { color: #8fa0ff; font-size: 13px; font-variant-numeric: tabular-nums; }
@@ -555,8 +558,13 @@ body { padding: 0; }
 .lfo-options > div { display: grid; grid-auto-flow: row; grid-auto-rows: 44px; align-content: start; gap: 6px; }
 .lfo-options button,
 .lfo-dialog-actions button { min-height: 43px; color: #d9dcda; background: linear-gradient(#515556, #303334); border: 1px solid #777b7c; border-radius: 2px; font-size: 10px; font-weight: 900; }
-.lfo-options button { width: 100%; min-height: 0; height: 44px; }
+.lfo-options button { width: 100%; min-height: 0; height: 44px; display: grid; grid-template-columns: 18px 1fr; align-items: center; gap: 8px; padding: 5px 10px; }
 .lfo-options button.active { color: #fff; background: linear-gradient(#6075d4, #35489e); border-color: #8294ed; box-shadow: 0 0 8px #536ee577; }
+.option-radio { width: 14px; height: 14px; border: 2px solid #aeb2b1; border-radius: 50%; background: #202223; box-shadow: inset 0 0 0 3px #202223; }
+.lfo-options button.active .option-radio { border-color: #dce2ff; background: #91a3ff; }
+.wave-icon,
+.direction-icon { width: 64px; height: 28px; justify-self: center; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.direction-icon .center-line { stroke: #8d9293; stroke-width: 1.2; stroke-dasharray: 3 3; }
 .lfo-dialog-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 10px; }
 .lfo-dialog-actions #lfoEnable.active { color: #fff; background: linear-gradient(#ff5b49, #b31c12); border-color: #ff8b7f; box-shadow: 0 0 10px #ff3528; }
 .lfo-dialog-actions #lfoPause.active { color: #241c09; background: linear-gradient(#ffd86a, #bd8a22); border-color: #ffd975; }
