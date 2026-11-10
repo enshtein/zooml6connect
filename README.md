@@ -1,6 +1,17 @@
 # ZOOM L6 Connect
 
-Touch-first PWA interface for bidirectional USB MIDI control and USB audio analysis of the ZOOM LiveTrak L6 on iPad.
+Touch-first PWA interfaces for bidirectional USB MIDI control and USB audio analysis of the ZOOM LiveTrak L6 family on iPad.
+
+## Choose your mixer
+
+- **ZOOM LiveTrak L6:** <https://enshtein.github.io/zooml6connect/>
+- **ZOOM LiveTrak L6MAX:** <https://enshtein.github.io/zooml6connect/l6max.html>
+
+Open the version that matches the connected hardware. The L6MAX page includes eight channel strips and its L6MAX-specific MIDI mapping.
+
+## iPadOS MIDI requirement
+
+For USB MIDI control on an iPad, open the app in [MIDIWeb Browser](https://apps.apple.com/us/app/midiweb-browser/id6757226617). Safari, Safari-installed web apps, and ordinary iPad browsers do not expose the Web MIDI API, so mixer control will not work in them. Audio analysis may still be available independently when the browser exposes the USB audio device.
 
 ## Local preview
 
@@ -12,7 +23,7 @@ Open <http://127.0.0.1:4173/>.
 
 ## Installable PWA
 
-The current `master` branch is deployed through GitHub Pages at <https://enshtein.github.io/zooml6connect/>. On supported desktop browsers use **Install app**; on iPad use Safari's **Add to Home Screen** and enable **Open as Web App**.
+The current `master` branch is deployed through GitHub Pages. On supported desktop browsers use **Install app**. For iPad USB MIDI control, use MIDIWeb Browser rather than Safari or an app installed from Safari.
 
 ## Native iPad test app
 
