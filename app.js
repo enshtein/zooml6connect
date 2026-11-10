@@ -251,6 +251,15 @@ document.querySelector("#midiApplyPorts").addEventListener("click", async () => 
     }
     midi.selectPorts(inputSelect.value, outputSelect.value);
     updateManualPortAction();
+    const inputName = inputSelect.selectedOptions[0]?.textContent || "Unknown input";
+    const outputName = outputSelect.selectedOptions[0]?.textContent || "Unknown output";
+    if (midi.connected) {
+      appendLog(`MANUAL PORTS APPLIED: ${inputName} → ${outputName}`);
+      applyPortsButton.textContent = "PORTS APPLIED";
+      window.setTimeout(() => { applyPortsButton.textContent = "APPLY PORTS"; }, 1400);
+    } else {
+      appendLog(`ERROR: COULD NOT OPEN ${inputName} → ${outputName}`);
+    }
   } catch (error) {
     setConnectionError(error);
     appendLog(`ERROR: ${error.message}`);
