@@ -1,4 +1,4 @@
-import { CHANNEL_MAPPINGS, GLOBAL_MAPPINGS, LAYERS, MIDI_CHANNEL, SCENES, clampMidi } from "./src/midi-mappings.js";
+import { CHANNEL_MAPPINGS, GLOBAL_MAPPINGS, IS_L6MAX, LAYERS, MIDI_CHANNEL as DEFAULT_MIDI_CHANNEL, SCENES, clampMidi } from "./src/midi-mappings.js";
 import { MidiService } from "./src/midi-service.js";
 import { LfoEngine } from "./src/lfo-engine.js";
 import { AudioService } from "./src/audio-service.js";
@@ -7,12 +7,14 @@ const midi = new MidiService();
 const lfo = new LfoEngine();
 const audio = new AudioService();
 const midiLogs = [];
-const MIXER_STORAGE_KEY = "zoom-l6-connect:mixer-state:v1";
+const MIXER_STORAGE_KEY = `zoom-l6-connect:${IS_L6MAX ? "l6max" : "l6"}:mixer-state:v1`;
 let activeLayer = "high";
 let connectionAttempt = null;
 let audioConnectionAttempt = null;
 let audioInputChannelCount = 0;
-let selectedScene = 0;
+const expectedAudioInputChannelCount = IS_L6MAX ? 14 : 12;
+let midiChannel = DEFAULT_MIDI_CHANNEL;
+let selectedScene = null;
 let compressorActive = false;
 let persistTimer = 0;
 const lfoConfigs = {};
@@ -27,6 +29,7 @@ const channels = CHANNEL_MAPPINGS.map(mapping => ({
 }));
 
 restoreMixerState();
+midi.channel = midiChannel;
 
 const channelsRoot = document.querySelector("#channels");
 const template = document.querySelector("#channelTemplate");
@@ -35,6 +38,7 @@ const settingsDialog = document.querySelector("#midiSettingsDialog");
 const iosMidiCompatibilityDialog = document.querySelector("#iosMidiCompatibilityDialog");
 const inputSelect = document.querySelector("#midiInputSelect");
 const outputSelect = document.querySelector("#midiOutputSelect");
+const midiChannelSelect = document.querySelector("#midiChannelSelect");
 const logElement = document.querySelector("#midiLog");
 const audioIndicator = document.querySelector("#audioConnectionIndicator");
 const audioDialog = document.querySelector("#audioSettingsDialog");
@@ -61,12 +65,12 @@ function renderChannel(channel, index) {
   routeButton.addEventListener("click", () => {
     channel.routeActive = !channel.routeActive;
     updateRouteButton(strip, channel);
-    if (channel.routeMidiSupported) midi.sendControlChange(channel.cc.route, channel.routeActive ? 127 : 0, MIDI_CHANNEL);
+    if (channel.routeMidiSupported) midi.sendControlChange(channel.cc.route, channel.routeActive ? 127 : 0, midiChannel);
     schedulePersist();
   });
 
   const meters = fragment.querySelector(".channel-meters");
-  const meterCount = index < 2 ? 1 : 2;
+  const meterCount = IS_L6MAX ? (index < 4 ? 1 : 2) : (index < 2 ? 1 : 2);
   if (meterCount === 2) meters.append(meters.firstElementChild.cloneNode(true));
   meters.querySelectorAll(".channel-meter").forEach((meter, meterIndex) => {
     meter.style.setProperty("--meter", "0%");
@@ -85,7 +89,7 @@ function renderChannel(channel, index) {
     channel.values[activeLayer] = value;
     lfo.updateBase(lfoKey(channel.number, activeLayer), value);
     updateStrip(strip, channel);
-    midi.sendControlChange(channel.cc[activeLayer], value, MIDI_CHANNEL);
+    midi.sendControlChange(channel.cc[activeLayer], value, midiChannel);
     schedulePersist();
   });
 
@@ -94,21 +98,21 @@ function renderChannel(channel, index) {
     channel.level = clampMidi(event.target.value);
     lfo.updateBase(lfoKey(channel.number, "level"), channel.level);
     updateStrip(strip, channel);
-    midi.sendControlChange(channel.cc.level, channel.level, MIDI_CHANNEL);
+    midi.sendControlChange(channel.cc.level, channel.level, midiChannel);
     schedulePersist();
   });
   addDoubleTap(levelFader, () => {
     lfo.stop(lfoKey(channel.number, "level"), false);
     channel.level = 64;
     updateStrip(strip, channel);
-    midi.sendControlChange(channel.cc.level, 64, MIDI_CHANNEL);
+    midi.sendControlChange(channel.cc.level, 64, midiChannel);
     schedulePersist();
   });
 
   fragment.querySelector(".mute-button").addEventListener("click", () => {
     channel.muted = !channel.muted;
     updateMuteButton(strip, channel);
-    midi.sendControlChange(channel.cc.mute, channel.muted ? 127 : 0, MIDI_CHANNEL);
+    midi.sendControlChange(channel.cc.mute, channel.muted ? 127 : 0, midiChannel);
     schedulePersist();
   });
 
@@ -131,22 +135,30 @@ document.querySelectorAll(".layer-button").forEach(button => {
 });
 
 document.querySelectorAll(".scene-buttons button").forEach((button, index) => {
-  button.dataset.program = SCENES[index].program;
+  const scene = SCENES[index];
+  button.dataset.program = scene.program;
+  button.disabled = !scene.midiSupported;
+  if (!scene.midiSupported) {
+    button.title = "Scene D is available on L6MAX hardware but is not documented for MIDI Program Change";
+    return;
+  }
   button.addEventListener("click", () => {
-    selectScene(SCENES[index].program);
-    midi.sendProgramChange(SCENES[index].program, MIDI_CHANNEL);
+    selectScene(scene.program);
+    midi.sendProgramChange(scene.program, midiChannel);
     schedulePersist();
   });
 });
 
 const compressorButton = document.querySelector(".comp-button");
-compressorButton.setAttribute("aria-pressed", "false");
-compressorButton.addEventListener("click", () => {
-  const active = !compressorButton.classList.contains("active");
-  setCompressor(active);
-  midi.sendControlChange(GLOBAL_MAPPINGS.compressor, active ? 127 : 0, MIDI_CHANNEL);
-  schedulePersist();
-});
+if (compressorButton) {
+  compressorButton.setAttribute("aria-pressed", "false");
+  compressorButton.addEventListener("click", () => {
+    const active = !compressorButton.classList.contains("active");
+    setCompressor(active);
+    midi.sendControlChange(GLOBAL_MAPPINGS.compressor, active ? 127 : 0, midiChannel);
+    schedulePersist();
+  });
+}
 setCompressor(compressorActive);
 selectScene(selectedScene);
 
@@ -216,7 +228,34 @@ async function openMidiDialog() {
 }
 
 document.querySelector("#midiAutoConnect").addEventListener("click", () => connectMidi());
-document.querySelector("#midiApplyPorts").addEventListener("click", () => midi.selectPorts(inputSelect.value, outputSelect.value));
+const applyPortsButton = document.querySelector("#midiApplyPorts");
+inputSelect.addEventListener("change", updateManualPortAction);
+outputSelect.addEventListener("change", updateManualPortAction);
+midiChannelSelect.value = String(midiChannel);
+midiChannelSelect.addEventListener("change", () => {
+  midiChannel = Math.max(1, Math.min(16, Number(midiChannelSelect.value) || DEFAULT_MIDI_CHANNEL));
+  midi.channel = midiChannel;
+  midiChannelSelect.value = String(midiChannel);
+  appendLog(`MIDI CHANNEL SET TO ${midiChannel}`);
+  schedulePersist();
+});
+document.querySelector("#midiApplyPorts").addEventListener("click", async () => {
+  try {
+    if (!midi.initialized) {
+      await midi.initialize();
+      refreshPortSelectors();
+    }
+    if (!inputSelect.value || !outputSelect.value) {
+      appendLog("SELECT AN INPUT AND OUTPUT PORT BEFORE APPLYING");
+      return;
+    }
+    midi.selectPorts(inputSelect.value, outputSelect.value);
+    updateManualPortAction();
+  } catch (error) {
+    setConnectionError(error);
+    appendLog(`ERROR: ${error.message}`);
+  }
+});
 document.querySelector("#midiDisconnect").addEventListener("click", () => midi.disconnect());
 document.querySelector("#midiDialogClose").addEventListener("click", () => settingsDialog.close());
 document.querySelector("#iosMidiDialogClose").addEventListener("click", () => iosMidiCompatibilityDialog.close());
@@ -296,7 +335,7 @@ async function connectMidi() {
 }
 
 function applyIncomingControlChange({ channel, cc, value }) {
-  if (channel !== MIDI_CHANNEL) return;
+  if (channel !== midiChannel) return;
   for (const channelState of channels) {
     if (channelState.cc.level === cc) {
       channelState.level = value;
@@ -376,7 +415,7 @@ function startLfo(strip, channel, layerKey) {
     if (layerKey === "level") channel.level = value;
     else channel.values[layerKey] = value;
     if (layerKey === "level" || activeLayer === layerKey) updateStrip(strip, channel);
-    midi.sendControlChange(cc, value, MIDI_CHANNEL);
+    midi.sendControlChange(cc, value, midiChannel);
   }, config);
   updateStrip(strip, channel);
 }
@@ -413,13 +452,14 @@ function updateRouteButton(strip, channel) {
 
 function setCompressor(active) {
   compressorActive = active;
+  if (!compressorButton) return;
   compressorButton.classList.toggle("active", active);
   compressorButton.setAttribute("aria-pressed", String(active));
 }
 
 function selectScene(program) {
-  selectedScene = program;
-  document.querySelectorAll(".scene-buttons button").forEach(button => button.classList.toggle("active", Number(button.dataset.program) === program));
+  selectedScene = Number.isInteger(program) ? program : null;
+  document.querySelectorAll(".scene-buttons button").forEach(button => button.classList.toggle("active", !button.disabled && Number(button.dataset.program) === selectedScene));
 }
 
 function updateConnection({ connected, inputName = "", outputName = "" }) {
@@ -452,6 +492,14 @@ function setConnectionError(error) {
 function refreshPortSelectors() {
   fillSelect(inputSelect, midi.getInputs(), midi.input?.id);
   fillSelect(outputSelect, midi.getOutputs(), midi.output?.id);
+  updateManualPortAction();
+}
+
+function updateManualPortAction() {
+  const ready = Boolean(inputSelect.value && outputSelect.value);
+  applyPortsButton.classList.toggle("ready", ready);
+  applyPortsButton.setAttribute("aria-disabled", String(!ready));
+  applyPortsButton.title = ready ? "Apply selected MIDI ports" : "Select an input and output port first";
 }
 
 function fillSelect(select, ports, selectedId) {
@@ -480,13 +528,13 @@ function updateAudioConnection({
   audioIndicator.classList.remove("attention", "error");
   audioIndicator.setAttribute("aria-label", connected ? "Audio connected" : "Connect audio");
   audioIndicator.title = connected ? `${label}: ${channelCount} channels, ${sampleRate} Hz` : "Choose USB audio input";
-  audioDeviceInfo.classList.toggle("warning", connected && channelCount < 12);
+  audioDeviceInfo.classList.toggle("warning", connected && channelCount < expectedAudioInputChannelCount);
   const nativeDiagnostics = maximumChannelCount
     ? ` · iOS max ${maximumChannelCount}, session ${sessionChannelCount}, engine ${channelCount}`
     : "";
   audioDeviceInfo.textContent = connected
-    ? channelCount < 12
-      ? `${label || "Audio input"} · ${channelCount} channels · ${sampleRate} Hz${nativeDiagnostics}. L6 is in Stereo Mix/Automatic web mode. Restart the L6 while holding USB 1/2 + SOUND PAD 2 to select fixed Multi Track (12-in/4-out), then reconnect AUDIO.`
+    ? channelCount < expectedAudioInputChannelCount
+      ? `${label || "Audio input"} · ${channelCount} channels · ${sampleRate} Hz${nativeDiagnostics}. ${IS_L6MAX ? "L6max" : "L6"} is in Stereo Mix/Automatic web mode. Select its fixed multitrack USB mode, then reconnect AUDIO.`
       : `${label || "Audio input"} · ${channelCount} channels · ${sampleRate} Hz${nativeDiagnostics}`
     : "Audio is disconnected";
 }
@@ -517,8 +565,10 @@ function updateAudioMeters(levels) {
     return;
   }
 
-  // Physical L6 USB capture order: MASTER L/R first, then CH1, CH2, CH3–CH6 stereo pairs.
-  const layout = [[2], [3], [4, 5], [6, 7], [8, 9], [10, 11]];
+  // USB capture order begins with MASTER L/R followed by the exposed mixer channels.
+  const layout = IS_L6MAX
+    ? [[2], [3], [4], [5], [6, 7], [8, 9], [10, 11], [12, 13]]
+    : [[2], [3], [4, 5], [6, 7], [8, 9], [10, 11]];
   layout.forEach((sourceChannels, stripIndex) => {
     const strip = getStrip(stripIndex + 1);
     const meters = strip.querySelectorAll(".lower-zone .channel-meter");
@@ -527,7 +577,7 @@ function updateAudioMeters(levels) {
     strip.querySelector(".signal-led").classList.toggle("active", peak > 0.08);
   });
   document.querySelectorAll(".master-channel-meters .channel-meter").forEach((meter, index) => {
-    setMeterLevel(meter, audioInputChannelCount >= 12 ? levels[index] || 0 : 0);
+    setMeterLevel(meter, audioInputChannelCount >= expectedAudioInputChannelCount ? levels[index] || 0 : 0);
   });
 }
 
@@ -630,7 +680,7 @@ function persistMixerState() {
   try {
     localStorage.setItem(MIXER_STORAGE_KEY, JSON.stringify({
       activeLayer,
-      selectedScene,
+      midiChannel,
       compressorActive,
       lfoConfigs: Object.fromEntries(Object.entries(lfoConfigs).map(([key, config]) => [key, { ...config, paused: false }])),
       channels: channels.map(channel => ({
@@ -651,7 +701,7 @@ function restoreMixerState() {
     const saved = JSON.parse(localStorage.getItem(MIXER_STORAGE_KEY));
     if (!saved || typeof saved !== "object") return;
     if (Object.hasOwn(LAYERS, saved.activeLayer)) activeLayer = saved.activeLayer;
-    if (SCENES.some(scene => scene.program === saved.selectedScene)) selectedScene = saved.selectedScene;
+    if (Number.isInteger(saved.midiChannel) && saved.midiChannel >= 1 && saved.midiChannel <= 16) midiChannel = saved.midiChannel;
     compressorActive = Boolean(saved.compressorActive);
     if (saved.lfoConfigs && typeof saved.lfoConfigs === "object") {
       for (const [key, config] of Object.entries(saved.lfoConfigs)) {
