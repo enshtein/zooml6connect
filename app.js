@@ -14,6 +14,7 @@ let audioConnectionAttempt = null;
 let audioInputChannelCount = 0;
 const expectedAudioInputChannelCount = IS_L6MAX ? 14 : 12;
 let midiChannel = DEFAULT_MIDI_CHANNEL;
+let savedMidiPorts = null;
 let selectedScene = null;
 let compressorActive = false;
 let persistTimer = 0;
@@ -218,7 +219,7 @@ function openIOSMidiCompatibilityDialog() {
 async function openMidiDialog() {
   settingsDialog.showModal();
   try {
-    if (!midi.connected) await midi.autoConnect();
+    if (!midi.connected) await connectMidi();
     refreshPortSelectors();
   } catch (error) {
     refreshPortSelectors();
@@ -250,6 +251,8 @@ document.querySelector("#midiApplyPorts").addEventListener("click", async () => 
       return;
     }
     midi.selectPorts(inputSelect.value, outputSelect.value);
+    savedMidiPorts = { inputId: inputSelect.value, outputId: outputSelect.value };
+    schedulePersist();
     updateManualPortAction();
     const inputName = inputSelect.selectedOptions[0]?.textContent || "Unknown input";
     const outputName = outputSelect.selectedOptions[0]?.textContent || "Unknown output";
@@ -331,7 +334,9 @@ async function connectMidi() {
   setConnectionPending();
   connectionAttempt = (async () => {
     try {
-      await midi.autoConnect();
+      await midi.initialize();
+      const restored = restoreSavedMidiPorts();
+      if (!restored) await midi.autoConnect();
       refreshPortSelectors();
     } catch (error) {
       setConnectionError(error);
@@ -502,6 +507,16 @@ function refreshPortSelectors() {
   fillSelect(inputSelect, midi.getInputs(), midi.input?.id);
   fillSelect(outputSelect, midi.getOutputs(), midi.output?.id);
   updateManualPortAction();
+}
+
+function restoreSavedMidiPorts() {
+  if (!savedMidiPorts?.inputId || !savedMidiPorts?.outputId) return false;
+  const inputAvailable = midi.getInputs().some(port => port.id === savedMidiPorts.inputId);
+  const outputAvailable = midi.getOutputs().some(port => port.id === savedMidiPorts.outputId);
+  if (!inputAvailable || !outputAvailable) return false;
+  midi.selectPorts(savedMidiPorts.inputId, savedMidiPorts.outputId);
+  appendLog("RESTORED SAVED MIDI PORTS");
+  return midi.connected;
 }
 
 function updateManualPortAction() {
@@ -690,6 +705,7 @@ function persistMixerState() {
     localStorage.setItem(MIXER_STORAGE_KEY, JSON.stringify({
       activeLayer,
       midiChannel,
+      midiPorts: savedMidiPorts,
       compressorActive,
       lfoConfigs: Object.fromEntries(Object.entries(lfoConfigs).map(([key, config]) => [key, { ...config, paused: false }])),
       channels: channels.map(channel => ({
@@ -711,6 +727,9 @@ function restoreMixerState() {
     if (!saved || typeof saved !== "object") return;
     if (Object.hasOwn(LAYERS, saved.activeLayer)) activeLayer = saved.activeLayer;
     if (Number.isInteger(saved.midiChannel) && saved.midiChannel >= 1 && saved.midiChannel <= 16) midiChannel = saved.midiChannel;
+    if (saved.midiPorts && typeof saved.midiPorts.inputId === "string" && typeof saved.midiPorts.outputId === "string") {
+      savedMidiPorts = { inputId: saved.midiPorts.inputId, outputId: saved.midiPorts.outputId };
+    }
     compressorActive = Boolean(saved.compressorActive);
     if (saved.lfoConfigs && typeof saved.lfoConfigs === "object") {
       for (const [key, config] of Object.entries(saved.lfoConfigs)) {
